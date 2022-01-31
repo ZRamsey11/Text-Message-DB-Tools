@@ -1,0 +1,70 @@
+'Ensure you have your target Access database open
+'and with the VBA Editor open, enable the DAO Library Reference @ Tools > References
+'All lines configured correctly, this code should run through every record in your target DB
+'and add files corrosponding to information contained in your database.
+
+Option Compare Database
+
+Function ImportAttachments()
+
+Dim db As DAO.Database
+
+Dim rs As DAO.Recordset2
+Dim rsAttach As DAO.Recordset2
+
+Dim fldTime As DAO.Field2
+Dim fldFile As DAO.Field2
+Dim fldAttach As DAO.Field2
+
+Dim strTime As String
+Dim strFile As String
+ 
+Set db = CurrentDb
+Set rs = db.OpenRecordset("iMessageDB")   'Change to name of your database
+Set fldTime = rs("timeStamp")             'Change to name of field containing message time stamps
+Set fldFile = rs("fileName")              'Change to name of field containing attachment file name
+Set fldAttach = rs("attachment")          'Change to name of field where attachments are to be imported
+
+On Error Resume Next
+
+Do Until rs.EOF
+    Set rsAttach = fldAttach.Value
+
+    strTime = Format(fldTime.Value, "yyyy-mm-dd hh nn ss")  'Change date-time formatting to corrospond with attachment file names
+    strFile = fldFile.Value
+
+    If Len(strFile) = 0 Then  'Skip records with empty fileName fields
+        rs.MoveNext
+    Else
+        rs.Edit
+        
+        rsAttach.AddNew
+        rsAttach("FileData").LoadFromFile "C:\...\attachmentDirectory" & strTime & * & strFile  'Find desired files according to your naming scheme
+        rsAttach.Update
+        
+        rsAttach.Close
+        rs.Update
+        rs.MoveNext
+    End If
+Loop
+
+'If you have to run the module multiple times, this will ignore records with populated attachment fields
+If Err.Number = 3820 Then
+    Err.Clear
+Else
+    MsgBox "Uncaught error number " & Err.Number & " (" & Err.Description & ")"
+    Err.Clear
+End If
+
+'Cleanup Time :D
+rs.Close
+db.Close
+    
+Set fldTime = Nothing
+Set fldFile = Nothing
+Set fldAttach = Nothing
+Set rsAttach = Nothing
+Set rs = Nothing
+Set db = Nothing
+
+End Function
